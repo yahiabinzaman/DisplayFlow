@@ -1,0 +1,16 @@
+# Xcode / Swift Package Manager
+.build/
+Packages/
+Package.pins
+Package.resolved
+*.xcodeproj
+*.xcworkspace
+
+# macOS
+.DS_Store
+*.swp
+*~
+
+# Artifacts / Binary
+DisplayControl.app
+test_*.swift
