@@ -6,7 +6,6 @@ public struct DisplayCardView: View {
     
     @State private var localBrightness: Double
     @State private var localWarmth: Double
-    @State private var showAdvanced: Bool = false
     
     public init(display: DisplayModel) {
         self.display = display
@@ -16,15 +15,15 @@ public struct DisplayCardView: View {
     
     public var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // Header: Display Info & Actions
+            // Header: Display Info & Badges
             HStack(spacing: 8) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 8, style: .continuous)
                         .fill(Color(nsColor: .controlAccentColor).opacity(0.18))
-                        .frame(width: 32, height: 32)
+                        .frame(width: 30, height: 30)
                     
                     Image(systemName: display.isBuiltin ? "laptopcomputer" : "display")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.system(size: 15, weight: .semibold))
                         .foregroundColor(Color(nsColor: .controlAccentColor))
                 }
                 
@@ -37,8 +36,8 @@ public struct DisplayCardView: View {
                         
                         if display.isMain {
                             Text("MAIN")
-                                .font(.system(size: 9, weight: .bold))
-                                .padding(.horizontal, 5)
+                                .font(.system(size: 8.5, weight: .bold))
+                                .padding(.horizontal, 4.5)
                                 .padding(.vertical, 1.5)
                                 .background(Color(nsColor: .controlAccentColor).opacity(0.15))
                                 .foregroundColor(Color(nsColor: .controlAccentColor))
@@ -46,9 +45,31 @@ public struct DisplayCardView: View {
                         }
                     }
                     
-                    Text(display.resolutionString)
-                        .font(.system(size: 11, weight: .regular))
+                    // Resolution menu inside header subtitle
+                    Menu {
+                        ForEach(display.availableResolutions.prefix(10)) { res in
+                            Button(action: {
+                                manager.setResolution(for: display, resolution: res)
+                            }) {
+                                HStack {
+                                    Text(res.title)
+                                    if (res.width == display.width && res.height == display.height) ||
+                                       (res.pixelWidth == display.pixelWidth && res.pixelHeight == display.pixelHeight) {
+                                        Image(systemName: "checkmark")
+                                    }
+                                }
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: 3) {
+                            Text(display.resolutionString)
+                                .font(.system(size: 11, weight: .regular))
+                            Image(systemName: "chevron.up.chevron.down")
+                                .font(.system(size: 8))
+                        }
                         .foregroundColor(.secondary)
+                    }
+                    .menuStyle(.borderlessButton)
                 }
                 
                 Spacer()
@@ -64,14 +85,15 @@ public struct DisplayCardView: View {
             }
             
             // Brightness Control (Apple Control Center Capsule Slider)
-            VStack(alignment: .leading, spacing: 5) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text("Display Brightness")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(.secondary)
                 
                 ControlCenterSlider(
                     value: $localBrightness,
-                    iconName: "sun.max.fill"
+                    iconName: "sun.max.fill",
+                    activeColor: .white
                 ) { editing in
                     if !editing {
                         manager.setBrightness(for: display, brightness: Float(localBrightness))
@@ -82,8 +104,8 @@ public struct DisplayCardView: View {
                 }
             }
             
-            // Refresh Rate (Hz) Segmented Picker
-            VStack(alignment: .leading, spacing: 5) {
+            // Refresh Rate (Hz) Segmented Bar
+            VStack(alignment: .leading, spacing: 4) {
                 Text("Refresh Rate")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(.secondary)
@@ -126,102 +148,37 @@ public struct DisplayCardView: View {
                 )
             }
             
-            // Advanced Controls Toggle (Resolution & Color Warmth)
-            Button(action: {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    showAdvanced.toggle()
-                }
-            }) {
-                HStack(spacing: 4) {
-                    Image(systemName: showAdvanced ? "chevron.down" : "chevron.right")
-                        .font(.system(size: 9, weight: .bold))
-                    Text(showAdvanced ? "Hide More Controls" : "More Controls (Warmth, Resolution)")
-                        .font(.system(size: 10.5, weight: .medium))
+            // Night Shift / Warmth Slider
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text("Night Shift Warmth")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.secondary)
                     Spacer()
                 }
-                .foregroundColor(Color(nsColor: .controlAccentColor))
-                .padding(.top, 2)
-            }
-            .buttonStyle(.plain)
-            
-            if showAdvanced {
-                VStack(alignment: .leading, spacing: 10) {
-                    // Color Warmth Slider
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack {
-                            Text("Night Warmth / Blue Light")
-                                .font(.system(size: 11, weight: .medium))
-                                .foregroundColor(.secondary)
-                            Spacer()
-                            Text("\(Int(localWarmth * 100))%")
-                                .font(.system(size: 10.5, weight: .bold, design: .rounded))
-                                .foregroundColor(.orange)
-                        }
-                        
-                        ControlCenterSlider(
-                            value: $localWarmth,
-                            iconName: "sun.horizon.fill"
-                        ) { editing in
-                            if !editing {
-                                manager.setWarmth(for: display, warmth: Float(localWarmth))
-                            }
-                        }
-                        .onChange(of: localWarmth) { newValue in
-                            manager.setWarmth(for: display, warmth: Float(newValue))
-                        }
-                    }
-                    
-                    // Resolution Selector
-                    if !display.availableResolutions.isEmpty {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Display Resolution")
-                                .font(.system(size: 11, weight: .medium))
-                                .foregroundColor(.secondary)
-                            
-                            Menu {
-                                ForEach(display.availableResolutions.prefix(12)) { res in
-                                    Button(action: {
-                                        manager.setResolution(for: display, resolution: res)
-                                    }) {
-                                        HStack {
-                                            Text(res.title)
-                                            if (res.width == display.width && res.height == display.height) ||
-                                               (res.pixelWidth == display.pixelWidth && res.pixelHeight == display.pixelHeight) {
-                                                Image(systemName: "checkmark")
-                                            }
-                                        }
-                                    }
-                                }
-                            } label: {
-                                HStack {
-                                    Image(systemName: "rectangle.inset.filled.and.cursorarrow")
-                                        .font(.system(size: 11))
-                                    Text(display.resolutionString)
-                                        .font(.system(size: 11, weight: .medium))
-                                    Spacer()
-                                    Image(systemName: "chevron.up.chevron.down")
-                                        .font(.system(size: 9))
-                                }
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 6)
-                                .background(Color(nsColor: .quaternaryLabelColor).opacity(0.3))
-                                .clipShape(RoundedRectangle(cornerRadius: 7))
-                            }
-                            .menuStyle(.borderlessButton)
-                        }
+                
+                ControlCenterSlider(
+                    value: $localWarmth,
+                    iconName: "sun.horizon.fill",
+                    activeColor: Color.orange.opacity(0.9),
+                    iconColor: .orange
+                ) { editing in
+                    if !editing {
+                        manager.setWarmth(for: display, warmth: Float(localWarmth))
                     }
                 }
-                .padding(.top, 4)
-                .transition(.opacity.combined(with: .move(edge: .top)))
+                .onChange(of: localWarmth) { newValue in
+                    manager.setWarmth(for: display, warmth: Float(newValue))
+                }
             }
         }
-        .padding(14)
+        .padding(13)
         .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(Color(nsColor: .controlBackgroundColor).opacity(0.55))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .stroke(Color.primary.opacity(0.06), lineWidth: 0.5)
         )
         .onChange(of: display.brightness) { newValue in
